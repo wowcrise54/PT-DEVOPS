@@ -1,23 +1,13 @@
 - name: Setup PostgreSQL master and Telegram Bot
   hosts: master
   become: true
-  vars:
-    db_user: "{{ lookup('env', 'DB_USER') }}"
-    db_password: "{{ lookup('env', 'DB_PASSWORD') }}"
-    db_name: "{{ lookup('env', 'DB_DATABASE') }}"
-    db_replication_user: "{{ lookup('env', 'DB_REPL_USER') }}"
-    db_replication_password: "{{ lookup('env', 'DB_REPL_PASSWORD') }}"
-    tg_bot_repo: "https://github.com/wowcrise54/PT-DEVOPS"
-    tg_bot_dir: "/opt/telegram_bot"
-    pg_version: "14"  
- 
   tasks:
     - name: Install required packages
       apt:
         name:
-          - postgresql
+          - postgresql-12
           - postgresql-contrib
-          - python3
+          - python3.9
           - python3-pip
           - git
         state: present
@@ -26,29 +16,41 @@
     - name: Ensure PostgreSQL service is running
       systemd:
         name: postgresql
-        state: enabled
-        enabled: true
+        state: started
+        enabled: yes
 
     - name: Set up PostgreSQL users
+      become_user: "{{DB_USER}}"
       postgresql_user:
-        name: "{{db_user}}"
-        password: "{{db_password}}"
+        name: "{{DB_USER}}"
+        password: "{{DB_PASSWORD}}"
+        role_attr_flags: "SUPERUSER"
+        state: present
+    - name: Set up postgres databases
+      become_user: "{{DB_USER}}"
+      postgresql_db:
+        name: "{{DB_DATABASE}}"
+        owner: "{{DB_USER}}"
         state: present
 
-    - name: Set up postgres databases
-      postgresql_db:
-        name: "{{db_name}}"
-        owner: "{{db_user}}"
-        state: present
+    - name: GRANT privilleges 
+      become_user: "{{DB_USER}}"
+      community.postgresql.postgresql_privs:
+        db: postgres
+        type: database
+        obj: "{{DB_DATABASE}}"
+        privs: ALL
+        role: "{{DB_USER}}"
 
     - name: Set up replication user
+      become_user: "{{DB_USER}}"
       postgresql_user:
-        name: "{{db_replication_user}}"
-        password: "{{db_replication_password}}"
-        priv: replication
+        name: "{{DB_REPL_USER}}"
+        password: "{{DB_REPL_PASSWORD}}"
+        role_attr_flags: replication
         state: present
-    
     - name: Configure PostgreSQL for replication
+      become_user: "{{DB_USER}}"
       blockinfile:
         path: "/etc/postgresql/{{ pg_version }}/main/postgresql.conf"
         block: |
@@ -60,58 +62,54 @@
 
     - name: Install git repository
       ansible.builtin.git:
-        clone: "{{tg_bot_repo}}"
-        dest: ~/tg_bot
-        state: present
-        update: yes
+        repo: https://github.com/wowcrise54/PT-DEVOPS.git
+        dest: /opt/tg_bot
 
     - name: Configure PostgreSQL pg_hba.conf
+      become_user: "{{DB_USER}}"
       lineinfile:
         path: "/etc/postgresql/{{ pg_version }}/main/pg_hba.conf"
-        line: "host replication {{ db_replication_user }} 0.0.0.0/0 md5"
+        line: "host replication {{ DB_REPL_USER }} 0.0.0.0/0 md5"
+        line: "host all all 0.0.0.0/0 md5"
         state: present
     
     - name: Create postgres table (one)
-      postgresql_table:
-        db: "{{db_name}}"
-        table: emails
-        colums:
-          - name: id 
-            type: serial
-            primary_key: true
-          - name: email
-            type: varchar(100)
-            not_null: true
+      become_user: "{{DB_USER}}"
+      community.postgresql.postgresql_query:
+        db: "{{DB_DATABASE}}"
+        query: >
+          CREATE TABLE IF NOT EXISTS emails (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(50) NOT NULL
+          );
 
     - name: Create postgres table (second)
-      postgresql_table:
-      db: "{{db_name}}"
-      table: phones_numbers
-      colums:
-        - name: id
-          type: serial
-          primary_key: true
-        - name: phone_number
-          type: varchar(30)
-          not_null: true
+      become_user: "{{DB_USER}}"
+      community.postgresql.postgresql_query:
+        db: "{{DB_DATABASE}}"
+        query: >
+          CREATE TABLE IF NOT EXISTS phone_numbers (
+            id SERIAL PRIMARY KEY,
+            phone_number VARCHAR(30) NOT NULL
+          );
 
     - name: Insert data into table (one)
+      become_user: "{{DB_USER}}"
       postgresql_query:
-        db: "{{db_name}}"
-        login_user: "{{db_user}}"
-        login_password: "{{db_password}}"
-        login_host: "{{db_}}"
-
-        query: "INSERT INTO emails (email) VALUES ('test@yandex.ru', 'example@gmail.com');"
+        db: "{{DB_DATABASE}}"
+        query: > 
+          INSERT INTO emails (email) VALUES 
+          ('test@yandex.ru'),
+          ('example@gmail.com');
 
     - name: Insert data into table (second)
+      become_user: "{{DB_USER}}"
       postgresql_query:
-        db: "{{db_name}}"
-        login_user: "{{db_user}}"
-        login_password: "{{db_password}}"
-        login_host: "{{db_}}"
-
-        query: "INSERT INTO phone_numbers (phone_number) VALUES ('+7(950)2233212', '8(800)232-23-42')"
+        db: "{{DB_DATABASE}}"
+        query: >
+          INSERT INTO phone_numbers (phone_number) VALUES 
+          ('+7(950)2233212'),
+          ('8(800)232-23-42');
 
     - name: Restart PostgreSQL to apply changes
       systemd:
@@ -120,28 +118,34 @@
 
     - name: Install python requirements
       pip: 
-        requirements: "~/tg_bot/requirements.txt"
+        requirements: "/opt/tg_bot/requirements.txt"
+
+    - name: Copy env file
+      ansible.builtin.copy: 
+        src: .env
+        dest: /opt/tg_bot/.env
 
     - name: Tg bot start 
-      ansible.builtin.shell: cd ~/tg_bot && python telegram_bot.py
+      ansible.builtin.shell: python /opt/tg_bot/telegram_bot.py &
 
 - name: Setup PostgreSQL replica
   hosts: slave
   become: true
-  vars: 
-    db_replication_user: "{{ lookup('env', 'DB_REPL_USER') }}"
-    db_replication_password: "{{ lookup('env', 'DB_REPL_PASSWORD') }}"
-    db_repl_address: "{{ lookup('env' 'DB_REPL_ADDRESS') }}"
-    pg_version: "14"
-
   tasks:
     - name: Install required packages
       apt: 
         name: 
-          - postgresql
+          - postgresql-12
           - postgresql-contrib
         state: present
         update_cache: yes 
+
+    - name: Copy pgpass file
+      become_user: postgres
+      copy:
+        src: .pgpass
+        dest: /var/lib/postgresql/.pgpass
+        mode: 0600
 
     - name: Stop PostgreSQL service
       systemd:
@@ -153,7 +157,7 @@
 
     - name: Test replica
       become_user: postgres
-      ansible.builtin.shell: pg_basebackup -R -h {{db_repl_address}} -U {{db_replication_user}} -D /var/lib/postgresql/{{pg_version}}/main -P
+      ansible.builtin.shell: pg_basebackup -R -h {{DB_HOST}} -U {{DB_REPL_USER}} -D /var/lib/postgresql/{{pg_version}}/main -P
 
     - name: Start Postgres
       systemd:
