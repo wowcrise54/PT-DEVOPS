@@ -12,6 +12,10 @@
           - git
         state: present
         update_cache: yes
+
+    - name: Install psycopg2
+      pip:
+       name: psycopg2-binary
   
     - name: Ensure PostgreSQL service is running
       systemd:
@@ -60,6 +64,14 @@
           hot_standby = on
           listen_addresses = '*'
 
+    - name: Configure PSQL
+      become_user: "{{DB_USER}}"
+      lineinfile:
+        path: "/etc/postgresql/{{ pg_version }}/main/pg_hba.conf"
+        line: "host replication {{ DB_REPL_USER }} 0.0.0.0/0 md5"
+        state: present
+
+
     - name: Install git repository
       ansible.builtin.git:
         repo: https://github.com/wowcrise54/PT-DEVOPS.git
@@ -69,7 +81,6 @@
       become_user: "{{DB_USER}}"
       lineinfile:
         path: "/etc/postgresql/{{ pg_version }}/main/pg_hba.conf"
-        line: "host replication {{ DB_REPL_USER }} 0.0.0.0/0 md5"
         line: "host all all 0.0.0.0/0 md5"
         state: present
     
@@ -125,8 +136,6 @@
         src: .env
         dest: /opt/tg_bot/.env
 
-    - name: Tg bot start 
-      ansible.builtin.shell: python /opt/tg_bot/telegram_bot.py &
 
 - name: Setup PostgreSQL replica
   hosts: slave
@@ -166,4 +175,9 @@
         enabled: true
     
 
-
+- name: Start tg bot
+  hosts: master
+  become: true
+  tasks:
+    - name: Tg bot start
+      ansible.builtin.shell: "nohup python3 /opt/tg_bot/telegram_bot.py &"
