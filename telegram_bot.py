@@ -10,8 +10,7 @@ from psycopg2 import Error
 from telegram import Update, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler, CallbackContext
 
-dotenv_path = Path('D:/University/PT-DEVOPS/tg.env')
-load_dotenv(dotenv_path=dotenv_path)
+load_dotenv()
 
 host = os.getenv('HOST')
 port = os.getenv('PORT')
