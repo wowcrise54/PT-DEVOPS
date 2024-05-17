@@ -12,15 +12,15 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Conve
 
 load_dotenv()
 
-host = os.getenv('HOST')
-port = os.getenv('PORT')
-username = os.getenv('USER')
-password = os.getenv('PASSWORD')
-user_db = os.getenv('USER_DB')
-password_db = os.getenv('PASSWORD_DB')
-port_db = os.getenv('PORT_DB')
-database_db = os.getenv('DATABASE')
-host_db = os.getenv('HOST_DB')
+host = os.getenv('RM_HOST')
+port = os.getenv('RM_PORT')
+username = os.getenv('RM_USER')
+password = os.getenv('RM_PASSWORD')
+user_db = os.getenv('DB_USER')
+password_db = os.getenv('DB_PASSWORD')
+port_db = os.getenv('DB_PORT')
+database_db = os.getenv('DB_DATABASE')
+host_db = os.getenv('DB_HOST')
 TOKEN = os.getenv('TOKEN')
 # Подключаем логирование
 logging.basicConfig(
