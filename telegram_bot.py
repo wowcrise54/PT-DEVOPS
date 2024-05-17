@@ -187,11 +187,9 @@ def ssh_command(command, update, context):
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(host, port=int(port), username=username, password=password)
-        
         stdin, stdout, stderr = client.exec_command(command)
         result = stdout.read().decode('utf-8') + stderr.read().decode('utf-8')
-        
-        
+        update.message.reply_text(result)
     except Exception as e:
         update.message.reply_text(f"An error occurred: {str(e)}")
     finally:
