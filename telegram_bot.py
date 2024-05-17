@@ -21,7 +21,7 @@ password_db = os.getenv('PASSWORD_DB')
 port_db = os.getenv('PORT_DB')
 database_db = os.getenv('DATABASE')
 host_db = os.getenv('HOST_DB')
-
+TOKEN - os.getenv('TOKEN')
 # Подключаем логирование
 logging.basicConfig(
     filename='tglog.txt', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG
