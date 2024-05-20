@@ -129,12 +129,12 @@
 
     - name: Install python requirements
       pip: 
-        requirements: "/opt/tg_bot/requirements.txt"
+        requirements: "/opt/tg_bot/bot/requirements.txt"
 
     - name: Copy env file
       ansible.builtin.copy: 
         src: .env
-        dest: /opt/tg_bot/.env
+        dest: /opt/tg_bot/bot/.env
 
 
 - name: Setup PostgreSQL replica
@@ -180,4 +180,4 @@
   become: true
   tasks:
     - name: Tg bot start
-      ansible.builtin.shell: "nohup python3 /opt/tg_bot/telegram_bot.py &"
+      ansible.builtin.shell: "nohup python3 /opt/tg_bot/bot/bot.py &"
